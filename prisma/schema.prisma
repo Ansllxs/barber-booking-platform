@@ -1,0 +1,196 @@
+// COELI BARBER CLUB — Prisma Schema
+// Multi-barber ready from day one
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  BARBER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum AppointmentSource {
+  WEB
+  ADMIN
+}
+
+enum NotificationType {
+  CONFIRMATION
+  REMINDER
+  CANCELLATION
+}
+
+enum NotificationChannel {
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model User {
+  id         String   @id @default(cuid())
+  supabaseId String   @unique
+  email      String   @unique
+  name       String
+  role       UserRole @default(ADMIN)
+  barberId   String?
+  barber     Barber?  @relation(fields: [barberId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([role])
+}
+
+model Barber {
+  id           String          @id @default(cuid())
+  name         String
+  slug         String          @unique
+  phone        String?
+  bio          String?
+  avatarUrl    String?
+  isActive     Boolean         @default(true)
+  sortOrder    Int             @default(0)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  users        User[]
+  appointments Appointment[]
+  businessHours BusinessHours[]
+  blockedDates BlockedDate[]
+  blockedHours BlockedHour[]
+
+  @@index([isActive, sortOrder])
+}
+
+model Service {
+  id              String        @id @default(cuid())
+  name            String
+  slug            String        @unique
+  description     String?
+  includes        String[]      @default([])
+  priceCrc        Int
+  durationMinutes Int
+  isActive        Boolean       @default(true)
+  sortOrder       Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  appointments    Appointment[]
+
+  @@index([isActive, sortOrder])
+}
+
+model Appointment {
+  id                 String            @id @default(cuid())
+  barberId           String
+  serviceId          String
+  customerName       String
+  customerPhone      String
+  startAt            DateTime
+  endAt              DateTime
+  status             AppointmentStatus @default(CONFIRMED)
+  source             AppointmentSource @default(WEB)
+  notes              String?
+  cancellationReason String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  barber             Barber            @relation(fields: [barberId], references: [id], onDelete: Restrict)
+  service            Service           @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  notifications      Notification[]
+
+  @@index([barberId, startAt, endAt])
+  @@index([status, startAt])
+  @@index([customerPhone])
+  @@index([serviceId])
+}
+
+/// Weekly schedule segments per barber (supports lunch split: 09:00-12:00 + 13:00-20:00)
+model BusinessHours {
+  id        String  @id @default(cuid())
+  barberId  String
+  /// 0 = Sunday, 1 = Monday, ... 6 = Saturday
+  dayOfWeek Int
+  openTime  String
+  closeTime String
+  isClosed  Boolean @default(false)
+  barber    Barber  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, dayOfWeek, openTime])
+  @@index([barberId, dayOfWeek])
+}
+
+model BlockedDate {
+  id      String   @id @default(cuid())
+  barberId String?
+  date    DateTime @db.Date
+  reason  String?
+  allDay  Boolean  @default(true)
+  barber  Barber?  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@unique([barberId, date])
+  @@index([date])
+}
+
+model BlockedHour {
+  id       String   @id @default(cuid())
+  barberId String?
+  startAt  DateTime
+  endAt    DateTime
+  reason   String?
+  barber   Barber?  @relation(fields: [barberId], references: [id], onDelete: Cascade)
+
+  @@index([barberId, startAt, endAt])
+  @@index([startAt, endAt])
+}
+
+model Settings {
+  id                       String @id @default("default")
+  businessName             String @default("COELI BARBER CLUB")
+  timezone                 String @default("America/Costa_Rica")
+  phone                    String @default("+50671936588")
+  mapsUrl                  String @default("https://maps.app.goo.gl/pHUVWPaKvmfoYpyJ7?g_st=ic")
+  /// Minutes of rest between appointments (0 = none)
+  bufferMinutes            Int    @default(0)
+  /// Base grid for start times (e.g. 30). Ends of existing appointments are also offered.
+  slotIntervalMinutes      Int    @default(30)
+  /// Latest allowed appointment start time, e.g. "19:00"
+  lastAppointmentStartTime String @default("19:00")
+  reminderMinutesBefore    Int    @default(60)
+  bookingLeadMinutes       Int    @default(0)
+  maxAdvanceDays           Int    @default(60)
+  updatedAt                DateTime @updatedAt
+}
+
+model Notification {
+  id                String              @id @default(cuid())
+  appointmentId     String
+  type              NotificationType
+  channel           NotificationChannel @default(WHATSAPP)
+  status            NotificationStatus  @default(PENDING)
+  providerMessageId String?
+  payload           Json?
+  error             String?
+  scheduledFor      DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+  appointment       Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId, type])
+  @@index([status, scheduledFor])
+  @@unique([appointmentId, type, channel])
+}
