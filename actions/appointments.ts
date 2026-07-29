@@ -8,7 +8,6 @@ import {
   listActiveServices,
 } from "@/services/appointment.service";
 import { getAvailableSlots, getBookableDates } from "@/services/availability.service";
-import { sendAppointmentConfirmation } from "@/services/whatsapp.service";
 import { rateLimit } from "@/lib/rate-limit";
 import type { ActionResult } from "@/types/booking";
 import type { TimeSlot } from "@/types/booking";
@@ -127,13 +126,6 @@ export async function createBookingAction(
       customerPhone: parsed.data.customerPhone, // 8 digits → normalized to +506 in service
       source: "WEB",
     });
-
-    // Barbería → cliente (automático). No bloquea la reserva si WhatsApp falla.
-    try {
-      await sendAppointmentConfirmation(appointment.id);
-    } catch (whatsappError) {
-      console.error("WhatsApp confirmation failed:", whatsappError);
-    }
 
     return {
       success: true,

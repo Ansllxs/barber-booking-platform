@@ -3,10 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { es } from "date-fns/locale";
+import { MessageCircle } from "lucide-react";
 import { getAppointmentById } from "@/services/appointment.service";
 import { BUSINESS } from "@/lib/constants";
 import { formatCrc, formatPhoneDisplay } from "@/utils/date";
 import { formatDuration } from "@/features/booking/types";
+import {
+  buildBookingNotifyShopMessage,
+  shopWhatsAppUrl,
+} from "@/utils/whatsapp";
 import { BrandLogo } from "@/components/brand/logo";
 
 export const metadata: Metadata = {
@@ -29,6 +34,19 @@ export default async function BookingSuccessPage({ params }: Props) {
   }
 
   const tz = BUSINESS.timezone;
+  const fecha = formatInTimeZone(appointment.startAt, tz, "EEEE d 'de' MMMM", {
+    locale: es,
+  });
+  const hora = formatInTimeZone(appointment.startAt, tz, "h:mm a");
+
+  const whatsappHref = shopWhatsAppUrl(
+    buildBookingNotifyShopMessage({
+      customerName: appointment.customerName,
+      serviceName: appointment.service.name,
+      fecha,
+      hora,
+    }),
+  );
 
   return (
     <main className="bg-luxury flex min-h-dvh items-center justify-center px-4 py-10">
@@ -42,12 +60,8 @@ export default async function BookingSuccessPage({ params }: Props) {
             Cita confirmada
           </h1>
           <p className="text-sm text-muted">
-            Gracias, {appointment.customerName}. Te enviaremos la confirmación
-            por WhatsApp a{" "}
-            <span className="text-silver">
-              {formatPhoneDisplay(appointment.customerPhone)}
-            </span>
-            .
+            Gracias, {appointment.customerName}. Tu cita quedó agendada. Tocá el
+            botón para avisar por WhatsApp (el mensaje ya va escrito).
           </p>
         </div>
 
@@ -63,12 +77,9 @@ export default async function BookingSuccessPage({ params }: Props) {
               Fecha y hora
             </dt>
             <dd className="mt-1 capitalize text-foreground">
-              {formatInTimeZone(appointment.startAt, tz, "EEEE d 'de' MMMM", {
-                locale: es,
-              })}
+              {fecha}
               <span className="mt-1 block normal-case text-muted">
-                {formatInTimeZone(appointment.startAt, tz, "h:mm a")} –{" "}
-                {formatInTimeZone(appointment.endAt, tz, "h:mm a")} ·{" "}
+                {hora} – {formatInTimeZone(appointment.endAt, tz, "h:mm a")} ·{" "}
                 {formatDuration(appointment.service.durationMinutes)}
               </span>
             </dd>
@@ -89,19 +100,36 @@ export default async function BookingSuccessPage({ params }: Props) {
               </dd>
             </div>
           </div>
+          <div>
+            <dt className="text-xs tracking-wide text-silver-dim uppercase">
+              Tu WhatsApp
+            </dt>
+            <dd className="mt-1 text-foreground">
+              {formatPhoneDisplay(appointment.customerPhone)}
+            </dd>
+          </div>
         </dl>
 
-        <p className="text-xs leading-relaxed text-muted">
-          No tienes que escribirnos. La barbería te contacta por WhatsApp con los
-          datos de tu cita.
-        </p>
-
-        <Link
-          href="/"
-          className="inline-flex min-h-12 w-full items-center justify-center bg-silver px-5 text-sm font-medium text-black"
-        >
-          Volver al inicio
-        </Link>
+        <div className="space-y-3">
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-14 w-full items-center justify-center gap-2 bg-silver px-5 text-sm font-medium text-black"
+          >
+            <MessageCircle className="h-5 w-5" />
+            Notifique su cita porfavor
+          </a>
+          <p className="text-xs leading-relaxed text-muted">
+            Es muy importante que nos envíe su confirmación al WhatsApp.
+          </p>
+          <Link
+            href="/"
+            className="inline-flex min-h-12 w-full items-center justify-center border border-border px-5 text-sm text-silver"
+          >
+            Volver al inicio
+          </Link>
+        </div>
       </div>
     </main>
   );

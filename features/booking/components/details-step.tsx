@@ -34,8 +34,8 @@ export function DetailsStep({
           Tus datos
         </h2>
         <p className="text-sm text-muted">
-          Al confirmar, COELI te enviará la confirmación por WhatsApp a este
-          número.
+          Al confirmar podrás avisar por WhatsApp con un toque. Usamos este
+          número para contactarte si hace falta.
         </p>
       </header>
 

@@ -14,13 +14,14 @@ import {
   UserX,
   Phone,
 } from "lucide-react";
-import {
-  contactCustomerWhatsAppAction,
-  setAppointmentStatusAction,
-} from "@/actions/admin";
+import { setAppointmentStatusAction } from "@/actions/admin";
 import { AdminNav } from "@/features/admin/components/admin-nav";
 import { BUSINESS } from "@/lib/constants";
 import { formatCrc, formatPhoneDisplay } from "@/utils/date";
+import {
+  buildReminderToCustomerMessage,
+  buildWhatsAppUrl,
+} from "@/utils/whatsapp";
 import { formatDuration } from "@/features/booking/types";
 import { cn } from "@/lib/utils";
 
@@ -59,12 +60,6 @@ export function AdminDayBoard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [waBusyId, setWaBusyId] = useState<string | null>(null);
-  const [waFlash, setWaFlash] = useState<{
-    id: string;
-    type: "ok" | "err";
-    text: string;
-  } | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -112,28 +107,6 @@ export function AdminDayBoard({
       void setAppointmentStatusAction({ id, status }).then(() => {
         setBusyId(null);
         router.refresh();
-      });
-    });
-  }
-
-  function sendReminder(appointmentId: string) {
-    setWaBusyId(appointmentId);
-    setWaFlash(null);
-    startTransition(() => {
-      void contactCustomerWhatsAppAction({
-        appointmentId,
-        kind: "reminder",
-      }).then((result) => {
-        setWaBusyId(null);
-        if (!result.success) {
-          setWaFlash({ id: appointmentId, type: "err", text: result.error });
-          return;
-        }
-        setWaFlash({
-          id: appointmentId,
-          type: "ok",
-          text: "Recordatorio enviado ✓",
-        });
       });
     });
   }
@@ -198,7 +171,6 @@ export function AdminDayBoard({
 
           {active.map((appt) => {
             const busy = pending && busyId === appt.id;
-            const waBusy = pending && waBusyId === appt.id;
             const isNext = nextUp?.id === appt.id;
             const done =
               appt.status === "COMPLETED" || appt.status === "NO_SHOW";
@@ -208,7 +180,26 @@ export function AdminDayBoard({
               BUSINESS.timezone,
               "h:mm a",
             );
-            const flash = waFlash?.id === appt.id ? waFlash : null;
+            const fechaLabel = formatInTimeZone(
+              appt.startAt,
+              BUSINESS.timezone,
+              "EEEE d 'de' MMMM",
+              { locale: es },
+            );
+            const horaLabel = formatInTimeZone(
+              appt.startAt,
+              BUSINESS.timezone,
+              "h:mm a",
+            );
+            const reminderHref = buildWhatsAppUrl(
+              appt.customerPhone,
+              buildReminderToCustomerMessage({
+                customerName: appt.customerName,
+                serviceName: appt.service.name,
+                fecha: fechaLabel,
+                hora: horaLabel,
+              }),
+            );
 
             return (
               <article
@@ -259,25 +250,15 @@ export function AdminDayBoard({
 
                 {!done ? (
                   <div className="mt-4 space-y-2">
-                    <button
-                      type="button"
-                      disabled={waBusy}
-                      onClick={() => sendReminder(appt.id)}
-                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 border border-border bg-background text-sm text-silver active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
+                    <a
+                      href={reminderHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 border border-border bg-background text-sm text-silver active:bg-surface-elevated md:min-h-12"
                     >
                       <MessageCircle className="h-4 w-4" />
-                      {waBusy ? "Enviando…" : "Enviar recordatorio"}
-                    </button>
-                    {flash ? (
-                      <p
-                        className={cn(
-                          "text-center text-xs",
-                          flash.type === "ok" ? "text-success" : "text-danger",
-                        )}
-                      >
-                        {flash.text}
-                      </p>
-                    ) : null}
+                      Enviar recordatorio
+                    </a>
 
                     <button
                       type="button"
@@ -309,15 +290,6 @@ export function AdminDayBoard({
                       </button>
                     </div>
                   </div>
-                ) : flash ? (
-                  <p
-                    className={cn(
-                      "mt-3 text-center text-xs",
-                      flash.type === "ok" ? "text-success" : "text-danger",
-                    )}
-                  >
-                    {flash.text}
-                  </p>
                 ) : null}
               </article>
             );
