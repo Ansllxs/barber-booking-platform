@@ -196,7 +196,7 @@ export async function sendAdminCustomerOutreach(
 
   const texts: Record<typeof kind, string> = {
     reminder: [
-      `Hola ${appointment.customerName}, te escribimos de ${BUSINESS.name}.`,
+      `Hola ${appointment.customerName}, te escribimos de ${BUSINESS.name} 💈`,
       "",
       `Te recordamos tu cita de ${appointment.service.name} el ${fecha} a las ${hora}.`,
       "",

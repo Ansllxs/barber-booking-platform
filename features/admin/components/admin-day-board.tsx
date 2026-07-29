@@ -5,12 +5,20 @@ import { useRouter } from "next/navigation";
 import { addDays, format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
-import { ChevronLeft, ChevronRight, Check, X, UserX, Phone } from "lucide-react";
 import {
-  adminLogoutAction,
+  ChevronLeft,
+  ChevronRight,
+  MessageCircle,
+  Check,
+  X,
+  UserX,
+  Phone,
+} from "lucide-react";
+import {
+  contactCustomerWhatsAppAction,
   setAppointmentStatusAction,
 } from "@/actions/admin";
-import { BrandLogo } from "@/components/brand/logo";
+import { AdminNav } from "@/features/admin/components/admin-nav";
 import { BUSINESS } from "@/lib/constants";
 import { formatCrc, formatPhoneDisplay } from "@/utils/date";
 import { formatDuration } from "@/features/booking/types";
@@ -51,6 +59,12 @@ export function AdminDayBoard({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [waBusyId, setWaBusyId] = useState<string | null>(null);
+  const [waFlash, setWaFlash] = useState<{
+    id: string;
+    type: "ok" | "err";
+    text: string;
+  } | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -102,30 +116,32 @@ export function AdminDayBoard({
     });
   }
 
+  function sendReminder(appointmentId: string) {
+    setWaBusyId(appointmentId);
+    setWaFlash(null);
+    startTransition(() => {
+      void contactCustomerWhatsAppAction({
+        appointmentId,
+        kind: "reminder",
+      }).then((result) => {
+        setWaBusyId(null);
+        if (!result.success) {
+          setWaFlash({ id: appointmentId, type: "err", text: result.error });
+          return;
+        }
+        setWaFlash({
+          id: appointmentId,
+          type: "ok",
+          text: "Recordatorio enviado ✓",
+        });
+      });
+    });
+  }
+
   return (
     <div className="bg-luxury min-h-dvh">
       <div className="mx-auto w-full max-w-5xl px-5 py-5 md:px-8 md:py-6">
-        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border/70 pb-4">
-          <div className="flex items-center gap-3">
-            <BrandLogo size="sm" href="/" />
-            <div>
-              <h1 className="font-display text-2xl text-silver-bright md:text-3xl">
-                Agenda
-              </h1>
-              <p className="text-sm text-muted">
-                {isToday ? "Hoy" : dateLabel} · {clock}
-              </p>
-            </div>
-          </div>
-          <form action={adminLogoutAction}>
-            <button
-              type="submit"
-              className="min-h-11 px-3 text-sm text-muted hover:text-silver"
-            >
-              Salir
-            </button>
-          </form>
-        </header>
+        <AdminNav subtitle={`${isToday ? "Hoy" : dateLabel} · ${clock}`} />
 
         <div className="mt-5 flex items-stretch gap-2 md:gap-3">
           <button
@@ -182,6 +198,7 @@ export function AdminDayBoard({
 
           {active.map((appt) => {
             const busy = pending && busyId === appt.id;
+            const waBusy = pending && waBusyId === appt.id;
             const isNext = nextUp?.id === appt.id;
             const done =
               appt.status === "COMPLETED" || appt.status === "NO_SHOW";
@@ -191,6 +208,7 @@ export function AdminDayBoard({
               BUSINESS.timezone,
               "h:mm a",
             );
+            const flash = waFlash?.id === appt.id ? waFlash : null;
 
             return (
               <article
@@ -243,6 +261,26 @@ export function AdminDayBoard({
                   <div className="mt-4 space-y-2">
                     <button
                       type="button"
+                      disabled={waBusy}
+                      onClick={() => sendReminder(appt.id)}
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 border border-border bg-background text-sm text-silver active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      {waBusy ? "Enviando…" : "Enviar recordatorio"}
+                    </button>
+                    {flash ? (
+                      <p
+                        className={cn(
+                          "text-center text-xs",
+                          flash.type === "ok" ? "text-success" : "text-danger",
+                        )}
+                      >
+                        {flash.text}
+                      </p>
+                    ) : null}
+
+                    <button
+                      type="button"
                       disabled={busy}
                       onClick={() => updateStatus(appt.id, "COMPLETED")}
                       className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-silver text-sm font-medium text-black active:bg-silver-bright disabled:opacity-40 md:min-h-14 md:text-base"
@@ -271,6 +309,15 @@ export function AdminDayBoard({
                       </button>
                     </div>
                   </div>
+                ) : flash ? (
+                  <p
+                    className={cn(
+                      "mt-3 text-center text-xs",
+                      flash.type === "ok" ? "text-success" : "text-danger",
+                    )}
+                  >
+                    {flash.text}
+                  </p>
                 ) : null}
               </article>
             );
@@ -284,7 +331,10 @@ export function AdminDayBoard({
             </summary>
             <ul className="space-y-1.5 border-t border-border px-4 py-3 md:columns-2">
               {cancelled.map((appt) => (
-                <li key={appt.id} className="text-sm text-muted break-inside-avoid">
+                <li
+                  key={appt.id}
+                  className="break-inside-avoid text-sm text-muted"
+                >
                   <span className="text-silver">
                     {formatInTimeZone(
                       appt.startAt,
