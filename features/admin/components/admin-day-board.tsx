@@ -301,10 +301,10 @@ export function AdminDayBoard({
                       type="button"
                       disabled={busy}
                       onClick={() => updateStatus(appt.id, "CONFIRMED")}
-                      className="inline-flex min-h-12 w-full items-center justify-center gap-2 border border-silver/40 bg-surface-elevated text-sm font-medium text-silver-bright active:bg-silver/20 disabled:opacity-40 md:min-h-14 md:text-base"
+                      className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 text-sm text-muted hover:text-silver active:text-silver-bright disabled:opacity-40"
                     >
-                      <Undo2 className="h-4 w-4" />
-                      {busy ? "Guardando…" : "Deshacer · volver a por atender"}
+                      <Undo2 className="h-3.5 w-3.5" />
+                      {busy ? "Guardando…" : "Deshacer"}
                     </button>
                   </div>
                 )}
