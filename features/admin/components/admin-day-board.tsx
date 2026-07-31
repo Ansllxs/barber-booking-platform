@@ -290,7 +290,18 @@ export function AdminDayBoard({
                       </button>
                     </div>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => updateStatus(appt.id, "CONFIRMED")}
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 border border-border bg-background text-sm text-silver active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
+                    >
+                      {busy ? "Guardando…" : "Deshacer"}
+                    </button>
+                  </div>
+                )}
               </article>
             );
           })}
