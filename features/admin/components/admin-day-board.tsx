@@ -13,6 +13,7 @@ import {
   X,
   UserX,
   Phone,
+  Undo2,
 } from "lucide-react";
 import { setAppointmentStatusAction } from "@/actions/admin";
 import { AdminNav } from "@/features/admin/components/admin-nav";
@@ -207,7 +208,6 @@ export function AdminDayBoard({
                 className={cn(
                   "flex flex-col border bg-surface p-4 md:p-5",
                   isNext ? "border-silver/45" : "border-border",
-                  done && "opacity-55",
                 )}
               >
                 {isNext ? (
@@ -216,7 +216,12 @@ export function AdminDayBoard({
                   </p>
                 ) : null}
 
-                <div className="flex items-start justify-between gap-3">
+                <div
+                  className={cn(
+                    "flex items-start justify-between gap-3",
+                    done && "opacity-55",
+                  )}
+                >
                   <div>
                     <p className="font-display text-3xl leading-none text-silver-bright md:text-4xl">
                       {formatInTimeZone(
@@ -230,7 +235,7 @@ export function AdminDayBoard({
                   <StatusChip status={appt.status} />
                 </div>
 
-                <div className="mt-4 flex-1">
+                <div className={cn("mt-4 flex-1", done && "opacity-55")}>
                   <p className="text-lg text-foreground md:text-xl">
                     {appt.customerName}
                   </p>
@@ -296,9 +301,10 @@ export function AdminDayBoard({
                       type="button"
                       disabled={busy}
                       onClick={() => updateStatus(appt.id, "CONFIRMED")}
-                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 border border-border bg-background text-sm text-silver active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
+                      className="inline-flex min-h-12 w-full items-center justify-center gap-2 border border-silver/40 bg-surface-elevated text-sm font-medium text-silver-bright active:bg-silver/20 disabled:opacity-40 md:min-h-14 md:text-base"
                     >
-                      {busy ? "Guardando…" : "Deshacer"}
+                      <Undo2 className="h-4 w-4" />
+                      {busy ? "Guardando…" : "Deshacer · volver a por atender"}
                     </button>
                   </div>
                 )}
