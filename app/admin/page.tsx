@@ -50,6 +50,7 @@ export default async function AdminPage({ searchParams }: Props) {
           startAt: a.startAt.toISOString(),
           endAt: a.endAt.toISOString(),
           status: a.status,
+          notes: a.notes,
           service: a.service,
           barber: a.barber,
         }))}

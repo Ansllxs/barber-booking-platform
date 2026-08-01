@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import {
   getAdminDayStats,
   todayYmd,
+  updateAppointmentNotes,
   updateAppointmentStatus,
 } from "@/services/admin-appointments.service";
 import { sendAdminCustomerOutreach } from "@/services/whatsapp.service";
@@ -103,6 +104,29 @@ export async function setAppointmentStatusAction(input: {
   } catch (error) {
     console.error(error);
     return { success: false, error: "No se pudo actualizar la cita" };
+  }
+}
+
+export async function setAppointmentNotesAction(input: {
+  id: string;
+  notes: string;
+}): Promise<ActionResult<{ id: string; notes: string | null }>> {
+  if (!(await isAdminAuthenticated())) {
+    return { success: false, error: "No autorizado" };
+  }
+
+  const notes = input.notes.trim().slice(0, 500);
+
+  try {
+    const updated = await updateAppointmentNotes(input.id, notes);
+    revalidatePath("/admin");
+    return {
+      success: true,
+      data: { id: updated.id, notes: updated.notes },
+    };
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: "No se pudo guardar la nota" };
   }
 }
 

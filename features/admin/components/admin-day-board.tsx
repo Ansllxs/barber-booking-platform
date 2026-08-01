@@ -14,8 +14,12 @@ import {
   UserX,
   Phone,
   Undo2,
+  StickyNote,
 } from "lucide-react";
-import { setAppointmentStatusAction } from "@/actions/admin";
+import {
+  setAppointmentNotesAction,
+  setAppointmentStatusAction,
+} from "@/actions/admin";
 import { AdminNav } from "@/features/admin/components/admin-nav";
 import { BUSINESS } from "@/lib/constants";
 import { formatCrc, formatPhoneDisplay } from "@/utils/date";
@@ -33,6 +37,7 @@ type AppointmentRow = {
   startAt: string;
   endAt: string;
   status: string;
+  notes: string | null;
   service: {
     name: string;
     priceCrc: number;
@@ -62,11 +67,23 @@ export function AdminDayBoard({
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [notesById, setNotesById] = useState<Record<string, string | null>>(
+    () => Object.fromEntries(appointments.map((a) => [a.id, a.notes])),
+  );
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [draftNote, setDraftNote] = useState("");
+  const [noteError, setNoteError] = useState<string | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    setNotesById(
+      Object.fromEntries(appointments.map((a) => [a.id, a.notes])),
+    );
+  }, [appointments]);
 
   const todayYmd = formatInTimeZone(now, BUSINESS.timezone, "yyyy-MM-dd");
   const isToday = date === todayYmd;
@@ -109,6 +126,40 @@ export function AdminDayBoard({
         setBusyId(null);
         router.refresh();
       });
+    });
+  }
+
+  function openNoteEditor(id: string) {
+    setEditingNoteId(id);
+    setDraftNote(notesById[id] ?? "");
+    setNoteError(null);
+  }
+
+  function closeNoteEditor() {
+    setEditingNoteId(null);
+    setDraftNote("");
+    setNoteError(null);
+  }
+
+  function saveNote(id: string) {
+    setNoteError(null);
+    setBusyId(id);
+    startTransition(() => {
+      void setAppointmentNotesAction({ id, notes: draftNote }).then(
+        (result) => {
+          setBusyId(null);
+          if (!result.success) {
+            setNoteError(result.error);
+            return;
+          }
+          setNotesById((current) => ({
+            ...current,
+            [id]: result.data.notes,
+          }));
+          closeNoteEditor();
+          router.refresh();
+        },
+      );
     });
   }
 
@@ -175,6 +226,9 @@ export function AdminDayBoard({
             const isNext = nextUp?.id === appt.id;
             const done =
               appt.status === "COMPLETED" || appt.status === "NO_SHOW";
+            const note = notesById[appt.id] ?? null;
+            const hasNote = Boolean(note?.trim());
+            const editing = editingNoteId === appt.id;
             const phoneDigits = appt.customerPhone.replace(/\D/g, "");
             const endLabel = formatInTimeZone(
               appt.endAt,
@@ -253,50 +307,98 @@ export function AdminDayBoard({
                   </a>
                 </div>
 
-                {!done ? (
-                  <div className="mt-4 space-y-2">
-                    <a
-                      href={reminderHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 border border-border bg-background text-sm text-silver active:bg-surface-elevated md:min-h-12"
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      Enviar recordatorio
-                    </a>
-
+                <div className="mt-4 space-y-2">
+                  {editing ? (
+                    <div className="space-y-2 border border-border bg-background p-3">
+                      <label className="block space-y-1.5">
+                        <span className="text-xs text-muted">Nota</span>
+                        <textarea
+                          value={draftNote}
+                          onChange={(e) => setDraftNote(e.target.value)}
+                          rows={3}
+                          maxLength={500}
+                          placeholder="Ej: se llevó cera, cambió a corte + barba…"
+                          className="min-h-20 w-full resize-y border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted focus:border-silver/50"
+                          autoFocus
+                        />
+                      </label>
+                      {noteError ? (
+                        <p className="text-sm text-danger">{noteError}</p>
+                      ) : null}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={closeNoteEditor}
+                          className="inline-flex min-h-11 items-center justify-center border border-border text-sm text-muted active:bg-surface-elevated disabled:opacity-40"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => saveNote(appt.id)}
+                          className="inline-flex min-h-11 items-center justify-center bg-silver text-sm font-medium text-black active:bg-silver-bright disabled:opacity-40"
+                        >
+                          {busy ? "Guardando…" : "Guardar"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => updateStatus(appt.id, "COMPLETED")}
-                      className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-silver text-sm font-medium text-black active:bg-silver-bright disabled:opacity-40 md:min-h-14 md:text-base"
+                      onClick={() => openNoteEditor(appt.id)}
+                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 border border-border bg-background text-sm text-silver active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
                     >
-                      <Check className="h-4 w-4" />
-                      {busy ? "Guardando…" : "Ya atendí"}
+                      <StickyNote className="h-4 w-4" />
+                      {hasNote ? "Ver notas" : "Agregar nota"}
                     </button>
-                    <div className="grid grid-cols-2 gap-2">
+                  )}
+
+                  {!done ? (
+                    <>
+                      <a
+                        href={reminderHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 border border-border bg-background text-sm text-silver active:bg-surface-elevated md:min-h-12"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Enviar recordatorio
+                      </a>
+
                       <button
                         type="button"
                         disabled={busy}
-                        onClick={() => updateStatus(appt.id, "NO_SHOW")}
-                        className="inline-flex min-h-11 items-center justify-center gap-1.5 border border-border text-sm text-muted active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
+                        onClick={() => updateStatus(appt.id, "COMPLETED")}
+                        className="inline-flex min-h-12 w-full items-center justify-center gap-2 bg-silver text-sm font-medium text-black active:bg-silver-bright disabled:opacity-40 md:min-h-14 md:text-base"
                       >
-                        <UserX className="h-4 w-4" />
-                        No vino
+                        <Check className="h-4 w-4" />
+                        {busy ? "Guardando…" : "Ya atendí"}
                       </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => updateStatus(appt.id, "CANCELLED")}
-                        className="inline-flex min-h-11 items-center justify-center gap-1.5 border border-border text-sm text-danger active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
-                      >
-                        <X className="h-4 w-4" />
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-4">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => updateStatus(appt.id, "NO_SHOW")}
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 border border-border text-sm text-muted active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
+                        >
+                          <UserX className="h-4 w-4" />
+                          No vino
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => updateStatus(appt.id, "CANCELLED")}
+                          className="inline-flex min-h-11 items-center justify-center gap-1.5 border border-border text-sm text-danger active:bg-surface-elevated disabled:opacity-40 md:min-h-12"
+                        >
+                          <X className="h-4 w-4" />
+                          Cancelar
+                        </button>
+                      </div>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       disabled={busy}
@@ -306,8 +408,8 @@ export function AdminDayBoard({
                       <Undo2 className="h-3.5 w-3.5" />
                       {busy ? "Guardando…" : "Deshacer"}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </article>
             );
           })}

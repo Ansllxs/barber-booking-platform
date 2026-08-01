@@ -75,3 +75,12 @@ export async function updateAppointmentStatus(
     },
   });
 }
+
+export async function updateAppointmentNotes(id: string, notes: string | null) {
+  const trimmed = notes?.trim() || null;
+  return prisma.appointment.update({
+    where: { id },
+    data: { notes: trimmed },
+    select: { id: true, notes: true },
+  });
+}
