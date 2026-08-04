@@ -10,13 +10,22 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminHoursPage() {
+type Props = {
+  searchParams: Promise<{ barber?: string }>;
+};
+
+export default async function AdminHoursPage({ searchParams }: Props) {
   await requireAdmin();
-  const { barber, days } = await getAdminBusinessHours();
+  const params = await searchParams;
+  const { barber, barbers, days } = await getAdminBusinessHours(params.barber);
 
   return (
     <main className="bg-luxury min-h-dvh">
-      <AdminHoursPanel barberName={barber.name} initialDays={days} />
+      <AdminHoursPanel
+        barbers={barbers}
+        selectedBarberId={barber.id}
+        initialDays={days}
+      />
     </main>
   );
 }

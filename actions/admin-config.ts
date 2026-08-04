@@ -96,12 +96,12 @@ export async function toggleServiceActiveAction(input: {
   }
 }
 
-export async function getAdminHoursAction(): Promise<
-  ActionResult<Awaited<ReturnType<typeof getAdminBusinessHours>>>
-> {
+export async function getAdminHoursAction(
+  barberId?: string,
+): Promise<ActionResult<Awaited<ReturnType<typeof getAdminBusinessHours>>>> {
   if (!(await guard())) return { success: false, error: "No autorizado" };
   try {
-    const data = await getAdminBusinessHours();
+    const data = await getAdminBusinessHours(barberId);
     return { success: true, data };
   } catch (error) {
     console.error(error);
@@ -111,11 +111,12 @@ export async function getAdminHoursAction(): Promise<
 
 export async function saveAdminHoursAction(
   days: DayHoursInput[],
+  barberId: string,
 ): Promise<ActionResult<{ ok: true }>> {
   if (!(await guard())) return { success: false, error: "No autorizado" };
 
   try {
-    await saveAdminBusinessHours(days);
+    await saveAdminBusinessHours(days, barberId);
     revalidatePublic();
     return { success: true, data: { ok: true } };
   } catch (error) {

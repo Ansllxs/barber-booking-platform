@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { listActiveServices, getDefaultBarber } from "@/services/appointment.service";
+import { listActiveServices, listActiveBarbers } from "@/services/appointment.service";
 import { BookingWizard } from "@/features/booking/components/booking-wizard";
 import Link from "next/link";
 
@@ -11,12 +11,12 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ReservarPage() {
-  const [services, barber] = await Promise.all([
+  const [services, barbers] = await Promise.all([
     listActiveServices(),
-    getDefaultBarber(),
+    listActiveBarbers(),
   ]);
 
-  if (!barber || services.length === 0) {
+  if (barbers.length === 0 || services.length === 0) {
     return (
       <main className="bg-luxury flex min-h-dvh items-center justify-center px-4">
         <div className="max-w-sm text-center">
@@ -39,7 +39,7 @@ export default async function ReservarPage() {
 
   return (
     <main className="bg-luxury min-h-dvh">
-      <BookingWizard services={services} barber={barber} />
+      <BookingWizard services={services} barbers={barbers} />
     </main>
   );
 }

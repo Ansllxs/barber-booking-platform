@@ -298,6 +298,9 @@ export function AdminDayBoard({
                     {formatDuration(appt.service.durationMinutes)} ·{" "}
                     {formatCrc(appt.service.priceCrc)}
                   </p>
+                  <p className="mt-1 text-sm text-silver">
+                    {appt.barber.name.split(" ")[0] ?? appt.barber.name}
+                  </p>
                   <a
                     href={`tel:+${phoneDigits}`}
                     className="mt-2 inline-flex min-h-10 items-center gap-1.5 text-sm text-silver hover:underline"

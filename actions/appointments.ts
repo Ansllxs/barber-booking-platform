@@ -5,9 +5,15 @@ import { availabilityQuerySchema, createAppointmentSchema } from "@/schemas/book
 import {
   createAppointment,
   getDefaultBarber,
+  listActiveBarbers,
   listActiveServices,
 } from "@/services/appointment.service";
-import { getAvailableSlots, getBookableDates } from "@/services/availability.service";
+import {
+  getAvailableSlots,
+  getAvailableSlotsForBarbers,
+  getBookableDates,
+  getBookableDatesForBarbers,
+} from "@/services/availability.service";
 import { rateLimit } from "@/lib/rate-limit";
 import type { ActionResult } from "@/types/booking";
 import type { TimeSlot } from "@/types/booking";
@@ -24,20 +30,22 @@ async function clientKey(prefix: string) {
 export async function getBookingBootstrapAction(): Promise<
   ActionResult<{
     services: Awaited<ReturnType<typeof listActiveServices>>;
+    barbers: Awaited<ReturnType<typeof listActiveBarbers>>;
     barber: NonNullable<Awaited<ReturnType<typeof getDefaultBarber>>>;
   }>
 > {
   try {
-    const [services, barber] = await Promise.all([
+    const [services, barbers, barber] = await Promise.all([
       listActiveServices(),
+      listActiveBarbers(),
       getDefaultBarber(),
     ]);
 
-    if (!barber) {
+    if (!barber || barbers.length === 0) {
       return { success: false, error: "No hay barberos disponibles" };
     }
 
-    return { success: true, data: { services, barber } };
+    return { success: true, data: { services, barbers, barber } };
   } catch (error) {
     console.error(error);
     return { success: false, error: "No se pudo cargar la reserva" };
@@ -46,21 +54,34 @@ export async function getBookingBootstrapAction(): Promise<
 
 export async function getAvailabilityAction(input: {
   serviceId: string;
-  barberId: string;
+  barberId?: string;
   date: string;
 }): Promise<ActionResult<TimeSlot[]>> {
-  const parsed = availabilityQuerySchema.safeParse(input);
-  if (!parsed.success) {
-    return { success: false, error: "Datos de disponibilidad inválidos" };
-  }
-
   const limited = rateLimit(await clientKey("availability"), 60, 60_000);
   if (!limited.success) {
     return { success: false, error: "Demasiadas consultas. Espera un momento." };
   }
 
   try {
-    const slots = await getAvailableSlots(parsed.data);
+    if (input.barberId) {
+      const parsed = availabilityQuerySchema.safeParse(input);
+      if (!parsed.success) {
+        return { success: false, error: "Datos de disponibilidad inválidos" };
+      }
+      const slots = await getAvailableSlots(parsed.data);
+      return { success: true, data: slots };
+    }
+
+    if (!input.serviceId || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
+      return { success: false, error: "Datos de disponibilidad inválidos" };
+    }
+
+    const barbers = await listActiveBarbers();
+    const slots = await getAvailableSlotsForBarbers({
+      barbers,
+      serviceId: input.serviceId,
+      date: input.date,
+    });
     return { success: true, data: slots };
   } catch (error) {
     console.error(error);
@@ -73,7 +94,7 @@ export async function getAvailabilityAction(input: {
 
 export async function getBookableDatesAction(input: {
   serviceId: string;
-  barberId: string;
+  barberId?: string;
 }): Promise<ActionResult<string[]>> {
   const limited = rateLimit(await clientKey("bookable-dates"), 30, 60_000);
   if (!limited.success) {
@@ -81,8 +102,19 @@ export async function getBookableDatesAction(input: {
   }
 
   try {
-    const dates = await getBookableDates({
-      ...input,
+    if (input.barberId) {
+      const dates = await getBookableDates({
+        barberId: input.barberId,
+        serviceId: input.serviceId,
+        daysAhead: 21,
+      });
+      return { success: true, data: dates };
+    }
+
+    const barbers = await listActiveBarbers();
+    const dates = await getBookableDatesForBarbers({
+      barbers,
+      serviceId: input.serviceId,
       daysAhead: 21,
     });
     return { success: true, data: dates };
@@ -123,7 +155,7 @@ export async function createBookingAction(
       barberId: parsed.data.barberId,
       startAt: new Date(parsed.data.startAt),
       customerName: parsed.data.customerName,
-      customerPhone: parsed.data.customerPhone, // 8 digits → normalized to +506 in service
+      customerPhone: parsed.data.customerPhone,
       source: "WEB",
     });
 

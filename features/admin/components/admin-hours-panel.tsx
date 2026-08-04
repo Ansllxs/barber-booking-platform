@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveAdminHoursAction } from "@/actions/admin-config";
+import {
+  getAdminHoursAction,
+  saveAdminHoursAction,
+} from "@/actions/admin-config";
 import { AdminNav } from "@/features/admin/components/admin-nav";
 import type { DayHoursInput } from "@/services/admin-config.service";
 import { cn } from "@/lib/utils";
@@ -58,18 +61,32 @@ function TimeSelect({
   );
 }
 
+type BarberOption = { id: string; name: string; slug: string };
+
 export function AdminHoursPanel({
-  barberName,
+  barbers,
+  selectedBarberId,
   initialDays,
 }: {
-  barberName: string;
+  barbers: BarberOption[];
+  selectedBarberId: string;
   initialDays: DayHoursInput[];
 }) {
   const router = useRouter();
+  const [barberId, setBarberId] = useState(selectedBarberId);
   const [days, setDays] = useState<DayHoursInput[]>(initialDays);
   const [pending, startTransition] = useTransition();
+  const [loadingBarber, setLoadingBarber] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedBarber =
+    barbers.find((b) => b.id === barberId) ?? barbers[0] ?? null;
+
+  useEffect(() => {
+    setBarberId(selectedBarberId);
+    setDays(initialDays);
+  }, [selectedBarberId, initialDays]);
 
   function updateDay(dayOfWeek: number, patch: Partial<DayHoursInput>) {
     setDays((current) =>
@@ -79,11 +96,30 @@ export function AdminHoursPanel({
     );
   }
 
+  function selectBarber(nextId: string) {
+    if (nextId === barberId) return;
+    setMessage(null);
+    setError(null);
+    setLoadingBarber(true);
+    setBarberId(nextId);
+    startTransition(() => {
+      void getAdminHoursAction(nextId).then((result) => {
+        setLoadingBarber(false);
+        if (!result.success) {
+          setError(result.error);
+          return;
+        }
+        setDays(result.data.days);
+        router.replace(`/admin/horarios?barber=${nextId}`);
+      });
+    });
+  }
+
   function save() {
     setError(null);
     setMessage(null);
     startTransition(() => {
-      void saveAdminHoursAction(days).then((result) => {
+      void saveAdminHoursAction(days, barberId).then((result) => {
         if (!result.success) {
           setError(result.error);
           return;
@@ -98,12 +134,39 @@ export function AdminHoursPanel({
     <div className="bg-luxury min-h-dvh">
       <div className="mx-auto w-full max-w-5xl px-5 py-5 md:px-8 md:py-6">
         <AdminNav
-          subtitle={`Horario de ${barberName} · mañana y tarde (almuerzo en medio)`}
+          subtitle={`Horarios · mañana y tarde (almuerzo en medio)`}
         />
 
+        {barbers.length > 1 ? (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            {barbers.map((barber) => {
+              const active = barber.id === barberId;
+              return (
+                <button
+                  key={barber.id}
+                  type="button"
+                  disabled={pending || loadingBarber}
+                  onClick={() => selectBarber(barber.id)}
+                  className={cn(
+                    "min-h-12 border text-sm font-medium transition disabled:opacity-40",
+                    active
+                      ? "border-silver bg-silver text-black"
+                      : "border-border bg-surface text-silver active:bg-surface-elevated",
+                  )}
+                >
+                  {barber.name.split(" ")[0] ?? barber.name}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
         <p className="mt-4 text-sm text-muted">
-          Podés cambiar las horas de cada día y marcar si está cerrado. Ejemplo:
-          09:00–12:00 y 13:00–20:00.
+          Editá el horario de{" "}
+          <span className="text-silver">
+            {selectedBarber?.name ?? "barbero"}
+          </span>
+          . Ejemplo: 09:00–12:00 y 13:00–20:00 (o hasta 17:00).
         </p>
 
         {message ? (
@@ -111,7 +174,12 @@ export function AdminHoursPanel({
         ) : null}
         {error ? <p className="mt-3 text-sm text-danger">{error}</p> : null}
 
-        <section className="mt-4 space-y-3">
+        <section
+          className={cn(
+            "mt-4 space-y-3",
+            (pending || loadingBarber) && "opacity-60",
+          )}
+        >
           {days.map((day) => (
             <article
               key={day.dayOfWeek}
@@ -199,7 +267,7 @@ export function AdminHoursPanel({
 
         <button
           type="button"
-          disabled={pending}
+          disabled={pending || loadingBarber}
           onClick={save}
           className="mt-5 min-h-14 w-full bg-silver text-base font-medium text-black active:bg-silver-bright disabled:opacity-40 md:max-w-sm"
         >

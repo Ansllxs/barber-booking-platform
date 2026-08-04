@@ -237,6 +237,55 @@ export async function getAvailableSlots(input: {
   return slots;
 }
 
+export async function getAvailableSlotsForBarbers(input: {
+  barbers: Array<{ id: string; name: string }>;
+  serviceId: string;
+  date: string;
+}): Promise<TimeSlot[]> {
+  const results = await Promise.all(
+    input.barbers.map(async (barber) => {
+      const slots = await getAvailableSlots({
+        barberId: barber.id,
+        serviceId: input.serviceId,
+        date: input.date,
+      });
+      return slots.map((slot) => ({
+        ...slot,
+        barberId: barber.id,
+        barberName: barber.name.split(" ")[0] ?? barber.name,
+      }));
+    }),
+  );
+
+  return results
+    .flat()
+    .sort(
+      (a, b) =>
+        a.startAt.localeCompare(b.startAt) ||
+        (a.barberName ?? "").localeCompare(b.barberName ?? ""),
+    );
+}
+
+export async function getBookableDatesForBarbers(input: {
+  barbers: Array<{ id: string }>;
+  serviceId: string;
+  daysAhead?: number;
+}): Promise<string[]> {
+  if (input.barbers.length === 0) return [];
+
+  const dateLists = await Promise.all(
+    input.barbers.map((barber) =>
+      getBookableDates({
+        barberId: barber.id,
+        serviceId: input.serviceId,
+        daysAhead: input.daysAhead,
+      }),
+    ),
+  );
+
+  return [...new Set(dateLists.flat())].sort();
+}
+
 function addMinutesSafe(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000);
 }

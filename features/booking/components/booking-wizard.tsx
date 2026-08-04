@@ -27,10 +27,10 @@ import { useRouter } from "next/navigation";
 
 type Props = {
   services: BookingService[];
-  barber: BookingBarber;
+  barbers: BookingBarber[];
 };
 
-export function BookingWizard({ services, barber }: Props) {
+export function BookingWizard({ services, barbers }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<WizardStep>("service");
   const [service, setService] = useState<BookingService | null>(null);
@@ -59,7 +59,6 @@ export function BookingWizard({ services, barber }: Props) {
 
     void getBookableDatesAction({
       serviceId: service.id,
-      barberId: barber.id,
     }).then((result) => {
       if (cancelled) return;
       setLoadingDates(false);
@@ -74,7 +73,7 @@ export function BookingWizard({ services, barber }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [service, barber.id]);
+  }, [service]);
 
   useEffect(() => {
     if (!service || !date) return;
@@ -86,7 +85,6 @@ export function BookingWizard({ services, barber }: Props) {
 
     void getAvailabilityAction({
       serviceId: service.id,
-      barberId: barber.id,
       date,
     }).then((result) => {
       if (cancelled) return;
@@ -102,7 +100,7 @@ export function BookingWizard({ services, barber }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [service, date, barber.id]);
+  }, [service, date]);
 
   function goBack() {
     setError(null);
@@ -113,13 +111,13 @@ export function BookingWizard({ services, barber }: Props) {
   }
 
   function confirmBooking() {
-    if (!service || !slot) return;
+    if (!service || !slot?.barberId) return;
     setError(null);
 
     startTransition(() => {
       void createBookingAction({
         serviceId: service.id,
-        barberId: barber.id,
+        barberId: slot.barberId,
         startAt: slot.startAt,
         customerName: customer.customerName,
         customerPhone: customer.customerPhone,
@@ -135,7 +133,11 @@ export function BookingWizard({ services, barber }: Props) {
 
   const canContinueService = Boolean(service);
   const canContinueDate = Boolean(date);
-  const canContinueTime = Boolean(slot);
+  const canContinueTime = Boolean(slot?.barberId);
+  const selectedBarberName =
+    slot?.barberName ??
+    barbers.find((b) => b.id === slot?.barberId)?.name ??
+    "";
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-4 sm:max-w-xl sm:px-6 md:max-w-2xl">
@@ -194,6 +196,7 @@ export function BookingWizard({ services, barber }: Props) {
               <TimeStep
                 slots={slots}
                 selectedStartAt={slot?.startAt ?? null}
+                selectedBarberId={slot?.barberId ?? null}
                 loading={loadingSlots}
                 onSelect={(selected) => {
                   setSlot(selected);
@@ -215,7 +218,7 @@ export function BookingWizard({ services, barber }: Props) {
             {step === "confirm" && service && slot ? (
               <ConfirmStep
                 service={service}
-                barberName={barber.name}
+                barberName={selectedBarberName}
                 startAt={slot.startAt}
                 endAt={slot.endAt}
                 customerName={customer.customerName}

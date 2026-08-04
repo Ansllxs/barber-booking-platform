@@ -13,11 +13,13 @@ function toDisplayLabel(label: string): string {
 export function TimeStep({
   slots,
   selectedStartAt,
+  selectedBarberId,
   loading,
   onSelect,
 }: {
   slots: TimeSlot[];
   selectedStartAt: string | null;
+  selectedBarberId: string | null;
   loading: boolean;
   onSelect: (slot: TimeSlot) => void;
 }) {
@@ -28,8 +30,7 @@ export function TimeStep({
           Elige la hora
         </h2>
         <p className="text-sm text-muted">
-          Última cita a las 7:00 p.m. Los horarios se actualizan según el
-          servicio.
+          Horarios disponibles de Kaled y Dorian. Elegí hora y barbero.
         </p>
       </header>
 
@@ -40,22 +41,36 @@ export function TimeStep({
           No hay horas libres este día. Prueba otra fecha.
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {slots.map((slot) => {
-            const selected = slot.startAt === selectedStartAt;
+            const selected =
+              slot.startAt === selectedStartAt &&
+              slot.barberId === selectedBarberId;
             return (
               <button
-                key={slot.startAt}
+                key={`${slot.barberId}-${slot.startAt}`}
                 type="button"
                 onClick={() => onSelect(slot)}
                 className={cn(
-                  "min-h-12 border px-2 py-3 text-sm transition",
+                  "min-h-14 border px-2 py-2.5 text-center transition",
                   selected
                     ? "border-silver bg-silver text-black"
                     : "border-border bg-surface text-foreground hover:border-silver/40",
                 )}
               >
-                {toDisplayLabel(slot.label)}
+                <span className="block text-sm font-medium">
+                  {toDisplayLabel(slot.label)}
+                </span>
+                {slot.barberName ? (
+                  <span
+                    className={cn(
+                      "mt-0.5 block text-xs",
+                      selected ? "text-black/70" : "text-muted",
+                    )}
+                  >
+                    {slot.barberName}
+                  </span>
+                ) : null}
               </button>
             );
           })}

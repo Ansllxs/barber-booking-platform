@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { ensureDorianBarber } from "@/services/ensure-barbers.service";
 
 function slugify(input: string): string {
   return input
@@ -107,6 +108,15 @@ export async function getPrimaryBarberId() {
   return barber;
 }
 
+export async function listAdminBarbers() {
+  await ensureDorianBarber();
+  return prisma.barber.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true, name: true, slug: true },
+  });
+}
+
 export type DayHoursInput = {
   dayOfWeek: number;
   isClosed: boolean;
@@ -124,8 +134,13 @@ function assertTime(value: string, label: string) {
   }
 }
 
-export async function getAdminBusinessHours() {
-  const barber = await getPrimaryBarberId();
+export async function getAdminBusinessHours(barberId?: string) {
+  const barbers = await listAdminBarbers();
+  if (barbers.length === 0) throw new Error("No hay barbero configurado");
+
+  const barber =
+    (barberId ? barbers.find((b) => b.id === barberId) : null) ?? barbers[0];
+
   const rows = await prisma.businessHours.findMany({
     where: { barberId: barber.id },
     orderBy: [{ dayOfWeek: "asc" }, { openTime: "asc" }],
@@ -139,25 +154,47 @@ export async function getAdminBusinessHours() {
       .filter((r) => !r.isClosed)
       .sort((a, b) => a.openTime.localeCompare(b.openTime));
 
+    const defaults =
+      barber.slug === "dorian"
+        ? {
+            morningOpen: "09:00",
+            morningClose: "12:00",
+            afternoonOpen: "13:00",
+            afternoonClose: "17:00",
+          }
+        : {
+            morningOpen: "09:00",
+            morningClose: "12:00",
+            afternoonOpen: "13:00",
+            afternoonClose: "20:00",
+          };
+
     days.push({
       dayOfWeek,
       isClosed: closed,
-      morningOpen: openRows[0]?.openTime ?? "09:00",
-      morningClose: openRows[0]?.closeTime ?? "12:00",
-      afternoonOpen: openRows[1]?.openTime ?? "13:00",
-      afternoonClose: openRows[1]?.closeTime ?? "20:00",
+      morningOpen: openRows[0]?.openTime ?? defaults.morningOpen,
+      morningClose: openRows[0]?.closeTime ?? defaults.morningClose,
+      afternoonOpen: openRows[1]?.openTime ?? defaults.afternoonOpen,
+      afternoonClose: openRows[1]?.closeTime ?? defaults.afternoonClose,
     });
   }
 
-  return { barber, days };
+  return { barber, barbers, days };
 }
 
-export async function saveAdminBusinessHours(days: DayHoursInput[]) {
+export async function saveAdminBusinessHours(
+  days: DayHoursInput[],
+  barberId: string,
+) {
   if (days.length !== 7) {
     throw new Error("Debés enviar los 7 días de la semana");
   }
 
-  const barber = await getPrimaryBarberId();
+  const barber = await prisma.barber.findFirst({
+    where: { id: barberId, isActive: true },
+    select: { id: true, name: true, slug: true },
+  });
+  if (!barber) throw new Error("Barbero no encontrado");
 
   const payload: Array<{
     barberId: string;
@@ -221,5 +258,5 @@ export async function saveAdminBusinessHours(days: DayHoursInput[]) {
     prisma.businessHours.createMany({ data: payload }),
   ]);
 
-  return getAdminBusinessHours();
+  return getAdminBusinessHours(barber.id);
 }

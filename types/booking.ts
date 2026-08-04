@@ -10,6 +10,8 @@ export type TimeSlot = {
   startAt: string; // ISO
   endAt: string; // ISO
   label: string; // e.g. "09:00"
+  barberId?: string;
+  barberName?: string;
 };
 
 export type ActionResult<T = void> =

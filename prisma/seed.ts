@@ -229,6 +229,59 @@ async function main() {
 
   console.log("Seed completed.");
   console.log(`Barber: ${barber.name} (${barber.id})`);
+
+  // Second barber — Dorian (9:00–12:00 + 13:00–17:00)
+  const DORIAN_SEGMENTS = [
+    { openTime: "09:00", closeTime: "12:00" },
+    { openTime: "13:00", closeTime: "17:00" },
+  ] as const;
+
+  const dorian =
+    (await prisma.barber.findUnique({ where: { slug: "dorian" } })) ??
+    (await prisma.barber.create({
+      data: {
+        name: "Dorian",
+        slug: "dorian",
+        bio: "Barbero de COELI BARBER CLUB.",
+        isActive: true,
+        sortOrder: 2,
+      },
+    }));
+
+  await prisma.barber.update({
+    where: { id: dorian.id },
+    data: {
+      name: "Dorian",
+      slug: "dorian",
+      bio: "Barbero de COELI BARBER CLUB.",
+      isActive: true,
+      sortOrder: 2,
+    },
+  });
+
+  await prisma.businessHours.deleteMany({ where: { barberId: dorian.id } });
+  await prisma.businessHours.createMany({
+    data: WORK_DAYS.flatMap((dayOfWeek) =>
+      DORIAN_SEGMENTS.map((segment) => ({
+        barberId: dorian.id,
+        dayOfWeek,
+        openTime: segment.openTime,
+        closeTime: segment.closeTime,
+        isClosed: false,
+      })),
+    ),
+  });
+  await prisma.businessHours.create({
+    data: {
+      barberId: dorian.id,
+      dayOfWeek: 0,
+      openTime: "00:00",
+      closeTime: "00:00",
+      isClosed: true,
+    },
+  });
+
+  console.log(`Barber: Dorian (${dorian.id}) · 9:00–17:00`);
   console.log(`Services: ${SERVICES.length}`);
 }
 

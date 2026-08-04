@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { normalizePhoneCR } from "@/utils/date";
 import { assertSlotStillAvailable } from "@/services/availability.service";
+import { ensureDorianBarber } from "@/services/ensure-barbers.service";
 import type { Appointment } from "@/lib/generated/prisma/client";
 
 export type CreateAppointmentInput = {
@@ -134,6 +135,19 @@ export async function listActiveServices() {
       includes: true,
       priceCrc: true,
       durationMinutes: true,
+    },
+  });
+}
+
+export async function listActiveBarbers() {
+  await ensureDorianBarber();
+  return prisma.barber.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
     },
   });
 }
