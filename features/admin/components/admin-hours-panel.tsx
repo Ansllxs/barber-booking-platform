@@ -134,7 +134,7 @@ export function AdminHoursPanel({
     <div className="bg-luxury min-h-dvh">
       <div className="mx-auto w-full max-w-5xl px-5 py-5 md:px-8 md:py-6">
         <AdminNav
-          subtitle={`Horarios · mañana y tarde (almuerzo en medio)`}
+          subtitle={`Horarios · mañana y tarde`}
         />
 
         {barbers.length > 1 ? (
@@ -166,7 +166,7 @@ export function AdminHoursPanel({
           <span className="text-silver">
             {selectedBarber?.name ?? "barbero"}
           </span>
-          . Ejemplo: 09:00–12:00 y 13:00–20:00 (o hasta 17:00).
+          . Ejemplo: 09:00–12:00 y 13:00–20:00.
         </p>
 
         {message ? (

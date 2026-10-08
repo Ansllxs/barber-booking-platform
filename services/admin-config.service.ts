@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { ensureDorianBarber } from "@/services/ensure-barbers.service";
+import { deactivateDorianBarber } from "@/services/ensure-barbers.service";
 
 function slugify(input: string): string {
   return input
@@ -109,7 +109,7 @@ export async function getPrimaryBarberId() {
 }
 
 export async function listAdminBarbers() {
-  await ensureDorianBarber();
+  await deactivateDorianBarber();
   return prisma.barber.findMany({
     where: { isActive: true },
     orderBy: { sortOrder: "asc" },
@@ -154,20 +154,12 @@ export async function getAdminBusinessHours(barberId?: string) {
       .filter((r) => !r.isClosed)
       .sort((a, b) => a.openTime.localeCompare(b.openTime));
 
-    const defaults =
-      barber.slug === "dorian"
-        ? {
-            morningOpen: "09:00",
-            morningClose: "12:00",
-            afternoonOpen: "13:00",
-            afternoonClose: "17:00",
-          }
-        : {
-            morningOpen: "09:00",
-            morningClose: "12:00",
-            afternoonOpen: "13:00",
-            afternoonClose: "20:00",
-          };
+    const defaults = {
+      morningOpen: "09:00",
+      morningClose: "12:00",
+      afternoonOpen: "13:00",
+      afternoonClose: "20:00",
+    };
 
     days.push({
       dayOfWeek,
