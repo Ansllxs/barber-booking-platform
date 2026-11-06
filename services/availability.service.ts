@@ -1,20 +1,14 @@
-import { addDays, format, isBefore, startOfDay } from "date-fns";
+import { addDays, format, startOfDay } from "date-fns";
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
 import { BOOKING_RULES, BUSINESS } from "@/lib/constants";
-import {
-  computeEndAt,
-  minutesToTime,
-  parseTimeToMinutes,
-  rangesOverlap,
-} from "@/utils/date";
+import { computeEndAt } from "@/utils/date";
+import { buildAvailableSlotsForDay } from "@/services/availability-slots";
 import type { TimeSlot } from "@/types/booking";
 
 const TIMEZONE = BUSINESS.timezone;
 /** Solo estas bloquean el calendario. CANCELLED / COMPLETED / NO_SHOW liberan la hora. */
 const ACTIVE_STATUSES = ["PENDING", "CONFIRMED"] as const;
-
-type Interval = { start: Date; end: Date };
 
 function dateYmdInTz(date: Date): string {
   return formatInTimeZone(date, TIMEZONE, "yyyy-MM-dd");
@@ -40,44 +34,6 @@ function dayBounds(dateYmd: string): { dayStart: Date; dayEnd: Date } {
     dayStart: zonedStart(dateYmd, "00:00"),
     dayEnd: zonedStart(dateYmd, "23:59"),
   };
-}
-
-function uniqueSortedMinutes(values: number[]): number[] {
-  return [...new Set(values)].sort((a, b) => a - b);
-}
-
-/**
- * Morning segments: appointment must fully finish before segment close (lunch).
- * Afternoon / last segment: may start until lastAppointmentStart; end may pass shop close.
- */
-function isStartAllowedInSegment(params: {
-  startMinutes: number;
-  durationMinutes: number;
-  segmentOpen: number;
-  segmentClose: number;
-  lastStartMinutes: number;
-  allowEndPastClose: boolean;
-}): boolean {
-  const {
-    startMinutes,
-    durationMinutes,
-    segmentOpen,
-    segmentClose,
-    lastStartMinutes,
-    allowEndPastClose,
-  } = params;
-
-  if (startMinutes < segmentOpen) return false;
-  if (startMinutes >= segmentClose) return false;
-  if (startMinutes > lastStartMinutes) return false;
-
-  const endMinutes = startMinutes + durationMinutes;
-
-  if (allowEndPastClose) {
-    return true;
-  }
-
-  return endMinutes <= segmentClose;
 }
 
 export async function getAvailableSlots(input: {
@@ -107,11 +63,8 @@ export async function getAvailableSlots(input: {
   const bufferMinutes = settings?.bufferMinutes ?? BOOKING_RULES.bufferMinutes;
   const slotInterval =
     settings?.slotIntervalMinutes ?? BOOKING_RULES.slotIntervalMinutes;
-  const lastStartHm =
-    settings?.lastAppointmentStartTime ?? BOOKING_RULES.lastAppointmentStartTime;
   const maxAdvanceDays = settings?.maxAdvanceDays ?? 60;
   const bookingLeadMinutes = settings?.bookingLeadMinutes ?? 0;
-  const lastStartMinutes = parseTimeToMinutes(lastStartHm);
 
   const now = new Date();
   const todayYmd = dateYmdInTz(now);
@@ -163,78 +116,18 @@ export async function getAvailableSlots(input: {
     return [];
   }
 
-  const occupied: Interval[] = [
-    ...appointments.map((a) => ({
-      start: a.startAt,
-      end: addMinutesSafe(a.endAt, bufferMinutes),
-    })),
-    ...blockedHours.map((b) => ({ start: b.startAt, end: b.endAt })),
-  ];
+  const earliestAllowed = new Date(now.getTime() + bookingLeadMinutes * 60_000);
 
-  const candidateMinutes = new Set<number>();
-
-  for (const segment of hours) {
-    const open = parseTimeToMinutes(segment.openTime);
-    const close = parseTimeToMinutes(segment.closeTime);
-    for (let m = open; m < close; m += slotInterval) {
-      candidateMinutes.add(m);
-    }
-  }
-
-  // Gap-fill: offer starts exactly when an appointment ends (e.g. 09:45)
-  for (const appt of appointments) {
-    const endLabel = formatInTimeZone(appt.endAt, TIMEZONE, "HH:mm");
-    const endYmd = formatInTimeZone(appt.endAt, TIMEZONE, "yyyy-MM-dd");
-    if (endYmd === dateYmd) {
-      candidateMinutes.add(parseTimeToMinutes(endLabel));
-    }
-  }
-
-  const earliestAllowed = addMinutesSafe(now, bookingLeadMinutes);
-  const segments = hours.map((h, index) => {
-    const open = parseTimeToMinutes(h.openTime);
-    const close = parseTimeToMinutes(h.closeTime);
-    const isLastSegment = index === hours.length - 1;
-    return { open, close, allowEndPastClose: isLastSegment };
+  return buildAvailableSlotsForDay({
+    dateYmd,
+    durationMinutes: service.durationMinutes,
+    hours,
+    appointments,
+    blockedHours,
+    bufferMinutes,
+    slotIntervalMinutes: slotInterval,
+    earliestAllowed,
   });
-
-  const slots: TimeSlot[] = [];
-
-  for (const startMinutes of uniqueSortedMinutes([...candidateMinutes])) {
-    const matchingSegment = segments.find(
-      (s) => startMinutes >= s.open && startMinutes < s.close,
-    );
-    if (!matchingSegment) continue;
-
-    const allowed = isStartAllowedInSegment({
-      startMinutes,
-      durationMinutes: service.durationMinutes,
-      segmentOpen: matchingSegment.open,
-      segmentClose: matchingSegment.close,
-      lastStartMinutes,
-      allowEndPastClose: matchingSegment.allowEndPastClose,
-    });
-    if (!allowed) continue;
-
-    const timeHm = minutesToTime(startMinutes);
-    const startAt = zonedStart(dateYmd, timeHm);
-    const endAt = computeEndAt(startAt, service.durationMinutes);
-
-    if (isBefore(startAt, earliestAllowed)) continue;
-
-    const conflicts = occupied.some((block) =>
-      rangesOverlap(startAt, endAt, block.start, block.end),
-    );
-    if (conflicts) continue;
-
-    slots.push({
-      startAt: startAt.toISOString(),
-      endAt: endAt.toISOString(),
-      label: timeHm,
-    });
-  }
-
-  return slots;
 }
 
 export async function getAvailableSlotsForBarbers(input: {
@@ -284,10 +177,6 @@ export async function getBookableDatesForBarbers(input: {
   );
 
   return [...new Set(dateLists.flat())].sort();
-}
-
-function addMinutesSafe(date: Date, minutes: number): Date {
-  return new Date(date.getTime() + minutes * 60_000);
 }
 
 export async function getBookableDates(input: {

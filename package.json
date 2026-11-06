@@ -13,7 +13,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "whatsapp:test": "tsx scripts/test-whatsapp.ts"
+    "whatsapp:test": "tsx scripts/test-whatsapp.ts",
+    "availability:test": "tsx scripts/test-availability.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",
