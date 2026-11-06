@@ -32,7 +32,7 @@ prisma/        → schema + seed + migrations
 |-------|--------|
 | Horario | Lun–Sáb 9:00–20:00 |
 | Almuerzo | 12:00–13:00 (no reservable) |
-| Última cita | Inicio dentro del horario del barbero. Con cierre a las 20:00, el servicio puede terminar hasta las 20:15. |
+| Última cita | Último inicio a las 19:15. Con cierre a las 20:00, el servicio puede terminar hasta las 20:15. |
 | Buffer | 0 |
 | Intervalo base de inicio | 30 min + huecos al terminar citas (ej. 9:45) |
 | Barbero inicial | Kaled Barrantes |

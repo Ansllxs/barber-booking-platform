@@ -52,8 +52,8 @@ assert(
   "45-min cut starting 19:15 should end at 20:00",
 );
 assert(
-  cut45.some((slot) => slot.label === "19:30" && slot.endAt === zoned("20:15").toISOString()),
-  "a 45-minute service at 19:30 should end at 20:15",
+  !labels(cut45).includes("19:30"),
+  "19:30 exceeds the latest start even for a service that fits before 20:15",
 );
 assert(
   !labels(cut45).includes("18:30"),
@@ -81,19 +81,28 @@ assert(
 
 assert(!labels(cut60).includes("19:30"), "a 60-minute service at 19:30 ends too late");
 
-const shortCut = buildAvailableSlotsForDay({
+const shortCutInput = {
   dateYmd: DATE,
-  durationMinutes: 15,
+  durationMinutes: 10,
   hours,
   appointments: [previous, { startAt: zoned("19:30"), endAt: zoned("19:45") }],
   blockedHours: [],
   bufferMinutes: 0,
   slotIntervalMinutes: 30,
   earliestAllowed: EARLIEST,
-});
-assert(shortCut.some((slot) => slot.label === "19:15" && slot.endAt === zoned("19:30").toISOString()),
+};
+const shortCut = buildAvailableSlotsForDay(shortCutInput);
+assert(shortCut.some((slot) => slot.label === "19:15" && slot.endAt === zoned("19:25").toISOString()),
   "a short service should fill the 19:15–19:30 gap");
-assert(labels(shortCut).includes("19:45"), "a short service can start after a 19:45 appointment end");
+assert(!labels(shortCut).includes("19:45"), "even a short service must start by 19:15");
+assert(
+  labels(buildAvailableSlotsForDay({ ...shortCutInput, appointments: [] })).includes("19:15"),
+  "19:15 should also be offered on an empty schedule",
+);
+assert(
+  !labels(buildAvailableSlotsForDay({ ...shortCutInput, durationMinutes: 61, appointments: [] })).includes("19:15"),
+  "a service ending at 20:16 must not be offered at 19:15",
+);
 assert(!labels(shortCut).includes("20:00"), "appointments must start before closing");
 
 assert(!isStartAllowedInSegment({

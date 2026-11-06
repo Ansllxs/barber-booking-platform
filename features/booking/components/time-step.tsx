@@ -30,8 +30,8 @@ export function TimeStep({
           Elige la hora
         </h2>
         <p className="text-sm text-muted">
-          Última cita a las 7:00 p.m. Los horarios se actualizan según el
-          servicio.
+          Último inicio a las 7:15 p.m. La disponibilidad depende de la duración
+          del servicio.
         </p>
       </header>
 

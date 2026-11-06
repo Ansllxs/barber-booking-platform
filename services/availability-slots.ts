@@ -11,6 +11,7 @@ import type { TimeSlot } from "@/types/booking";
 
 const TIMEZONE = BUSINESS.timezone;
 const NORMAL_CLOSE_MINUTES = parseTimeToMinutes(BOOKING_RULES.closeTime);
+const LATEST_START_MINUTES = parseTimeToMinutes(BOOKING_RULES.lastAppointmentStartTime);
 const LATEST_END_MINUTES = parseTimeToMinutes("20:15");
 
 type Interval = { start: Date; end: Date };
@@ -48,6 +49,7 @@ export function isStartAllowedInSegment(params: {
 
   if (startMinutes < segmentOpen) return false;
   if (startMinutes >= segmentClose) return false;
+  if (startMinutes > LATEST_START_MINUTES) return false;
   const latestEnd = isLastSegment && segmentClose === NORMAL_CLOSE_MINUTES
     ? LATEST_END_MINUTES
     : Math.min(segmentClose, LATEST_END_MINUTES);
@@ -86,7 +88,7 @@ export function buildAvailableSlotsForDay(input: {
     ...blockedHours.map((b) => ({ start: b.startAt, end: b.endAt })),
   ];
 
-  const candidateMinutes = new Set<number>();
+  const candidateMinutes = new Set<number>([LATEST_START_MINUTES]);
 
   for (const segment of hours) {
     const open = parseTimeToMinutes(segment.openTime);
