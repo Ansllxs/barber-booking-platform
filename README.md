@@ -32,7 +32,7 @@ prisma/        → schema + seed + migrations
 |-------|--------|
 | Horario | Lun–Sáb 9:00–20:00 |
 | Almuerzo | 12:00–13:00 (no reservable) |
-| Última cita | Inicio máximo 19:00 (cualquier duración) |
+| Última cita | Inicio máximo 19:15 (puede terminar después de las 20:00) |
 | Buffer | 0 |
 | Intervalo base de inicio | 30 min + huecos al terminar citas (ej. 9:45) |
 | Barbero inicial | Kaled Barrantes |
@@ -99,3 +99,14 @@ Abre [http://localhost:3000](http://localhost:3000).
 - Los precios se guardan en colones enteros (`priceCrc`).
 - `endAt` = `startAt` + `durationMinutes` del servicio.
 - El schema soporta múltiples barberos sin cambios de base de datos.
+
+## Último inicio de cita (Supabase)
+
+Cambiar el código a `19:15` no actualiza solo una fila de `Settings` que ya exista en Supabase. Si esa fila todavía tiene `19:00`, ejecutá este SQL en el SQL Editor:
+
+```sql
+UPDATE "Settings"
+SET "lastAppointmentStartTime" = '19:15'
+WHERE id = 'default'
+  AND "lastAppointmentStartTime" = '19:00';
+```

@@ -137,7 +137,7 @@ async function main() {
       mapsUrl: "https://maps.app.goo.gl/pHUVWPaKvmfoYpyJ7?g_st=ic",
       bufferMinutes: 0,
       slotIntervalMinutes: 30,
-      lastAppointmentStartTime: "19:00",
+      lastAppointmentStartTime: "19:15",
       reminderMinutesBefore: 60,
       bookingLeadMinutes: 0,
       maxAdvanceDays: 60,
@@ -149,7 +149,7 @@ async function main() {
       mapsUrl: "https://maps.app.goo.gl/pHUVWPaKvmfoYpyJ7?g_st=ic",
       bufferMinutes: 0,
       slotIntervalMinutes: 30,
-      lastAppointmentStartTime: "19:00",
+      lastAppointmentStartTime: "19:15",
     },
   });
 

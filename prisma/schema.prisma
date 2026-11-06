@@ -168,8 +168,8 @@ model Settings {
   bufferMinutes            Int    @default(0)
   /// Base grid for start times (e.g. 30). Ends of existing appointments are also offered.
   slotIntervalMinutes      Int    @default(30)
-  /// Latest allowed appointment start time, e.g. "19:00"
-  lastAppointmentStartTime String @default("19:00")
+  /// Latest allowed appointment start time, e.g. "19:15"
+  lastAppointmentStartTime String @default("19:15")
   reminderMinutesBefore    Int    @default(60)
   bookingLeadMinutes       Int    @default(0)
   maxAdvanceDays           Int    @default(60)

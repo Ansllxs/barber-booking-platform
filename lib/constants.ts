@@ -14,7 +14,7 @@ export const BUSINESS = {
 export const BOOKING_RULES = {
   bufferMinutes: 0,
   slotIntervalMinutes: 30,
-  lastAppointmentStartTime: "19:00",
+  lastAppointmentStartTime: "19:15",
   openTime: "09:00",
   closeTime: "20:00",
   lunchStart: "12:00",
