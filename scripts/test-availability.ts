@@ -95,12 +95,21 @@ const shortCut = buildAvailableSlotsForDay(shortCutInput);
 assert(shortCut.some((slot) => slot.label === "19:15" && slot.endAt === zoned("19:25").toISOString()),
   "a short service should fill the 19:15–19:30 gap");
 assert(!labels(shortCut).includes("19:45"), "even a short service must start by 19:15");
+const emptySlots = labels(buildAvailableSlotsForDay({
+  ...shortCutInput,
+  appointments: [],
+  slotIntervalMinutes: 15,
+}));
+assert(emptySlots.at(-1) === "19:00", "regular starts must stop at 19:00");
+
+const afterHour = buildAvailableSlotsForDay({
+  ...shortCutInput,
+  appointments: [{ startAt: zoned("18:30"), endAt: zoned("19:30") }],
+});
+assert(labels(afterHour).at(-1) === "18:00", "no later slot after the 18:30–19:30 booking");
+
 assert(
-  labels(buildAvailableSlotsForDay({ ...shortCutInput, appointments: [] })).includes("19:15"),
-  "19:15 should also be offered on an empty schedule",
-);
-assert(
-  !labels(buildAvailableSlotsForDay({ ...shortCutInput, durationMinutes: 61, appointments: [] })).includes("19:15"),
+  !labels(buildAvailableSlotsForDay({ ...shortCutInput, durationMinutes: 61, appointments: [previous] })).includes("19:15"),
   "a service ending at 20:16 must not be offered at 19:15",
 );
 assert(!labels(shortCut).includes("20:00"), "appointments must start before closing");

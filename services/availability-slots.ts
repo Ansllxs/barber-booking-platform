@@ -11,6 +11,7 @@ import type { TimeSlot } from "@/types/booking";
 
 const TIMEZONE = BUSINESS.timezone;
 const NORMAL_CLOSE_MINUTES = parseTimeToMinutes(BOOKING_RULES.closeTime);
+const LATEST_REGULAR_START_MINUTES = parseTimeToMinutes("19:00");
 const LATEST_START_MINUTES = parseTimeToMinutes(BOOKING_RULES.lastAppointmentStartTime);
 const LATEST_END_MINUTES = parseTimeToMinutes("20:15");
 
@@ -88,12 +89,12 @@ export function buildAvailableSlotsForDay(input: {
     ...blockedHours.map((b) => ({ start: b.startAt, end: b.endAt })),
   ];
 
-  const candidateMinutes = new Set<number>([LATEST_START_MINUTES]);
+  const candidateMinutes = new Set<number>();
 
   for (const segment of hours) {
     const open = parseTimeToMinutes(segment.openTime);
     const close = parseTimeToMinutes(segment.closeTime);
-    for (let m = open; m < close; m += slotIntervalMinutes) {
+    for (let m = open; m < close && m <= LATEST_REGULAR_START_MINUTES; m += slotIntervalMinutes) {
       candidateMinutes.add(m);
     }
   }
